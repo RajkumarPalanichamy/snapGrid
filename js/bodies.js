@@ -106,7 +106,13 @@ class Bodies {
         rectangle.castShadow = true;
         rectangle.name = 'shape';
         rectangle.renderOrder = 1; // Try higher numbers if needed
-        this.positionRectangle(rectangle);
+        const val =this.findFreePosition(rectangle)
+        if(val) {
+            rectangle.position.set(val.x,val.y,val.z)
+        } else{
+            alert('Entered maximum limit 😔');
+            return ;
+        }
         const textureLoader = new THREE.TextureLoader();
         const spriteMaterial = new THREE.SpriteMaterial({
             map: textureLoader.load('https://media-hosting.imagekit.io/b856a4f175bf4f98/sprite.png?Expires=1838118552&Key-Pair-Id=K2ZIVPTIP2VGHC&Signature=p21IjJNaJ5N1qf~pedo4XTU-vsLY8raIqieZeDZI9VC8eDxOuGSy8PwDniJtQxmpLjrmQASnSOlZouaDUDE2WemoJKOw2~4T7ODshHJ2Zh2UxvhpgJJt4BtB9VB5lb7qI8JmpbDxP1PD2Nz~7loweKi4MUgwUbBBeNjdIZuyeI9Fh9E-DeLD7W9tmhD~ZgtfldRRKOuTUXu4CfJbI9FNa9ESXQsOGlR7t-RE9YcOQlPcRipYaQg3AyhSAizUMK58dh34l9iCe3AUB8Qe2TKX6pGp22EqPUgYOjuG9jP~fBPz~-Bdyqzbe1fhU3035Qa4K9N8rAxhtyHRRH8VhoMu9w__'),
@@ -123,7 +129,7 @@ class Bodies {
         this.viewer.scene.add(this.pivot);
         sprite.renderOrder = 2; // Try higher numbers if needed
         if (visible) this.viewer.scene.add(rectangle);
-        rectangle.position.y = 0.1;
+        // rectangle.position.y = 0.1;
         if (lineSegments) {
             const object = { lineSegments, width: widthBox, height: heightBox, depth: depthBox }
             this.overallBodies.push({ mesh: rectangle, line: object, sprite: sprite });
@@ -143,12 +149,31 @@ class Bodies {
         this.viewer.scene.add(sprite);
         return rectangle
     }
-
-    positionRectangle(rectangle) {
-        if (!this.viewer.overallDepth) return;
+    findFreePosition(rectangle) {
+        const boardBox = new THREE.Box3().setFromObject(this.frame);
+        const rectWidth = rectangle.geometry.parameters.width;
+        const rectHeight = rectangle.geometry.parameters.height;
         const rectDepth = rectangle.geometry.parameters.depth;
-        rectangle.position.z = this.viewer.overallDepth / 2 - rectDepth / 2;
+        const updatedArray = [...this.overallBodies];
+        let overlaps = false
+        for (let x = boardBox.min.x + rectWidth / 2; x <= boardBox.max.x - rectWidth / 2; x += rectWidth / 4 ) {
+            for (let y = boardBox.min.y + rectHeight / 2; y <= boardBox.max.y - rectHeight / 2; y += rectHeight / 4) {            
+                const testBox = new THREE.Box3(
+                    new THREE.Vector3(x - rectWidth / 2, y - rectHeight / 2,boardBox.max.z - rectDepth/2),
+                    new THREE.Vector3(x + rectWidth / 2, y + rectHeight / 2,boardBox.max.z - rectDepth/2)
+                );
+                 overlaps = updatedArray.some(mesh => {
+                    const meshBox = new THREE.Box3().setFromObject(mesh.mesh);
+                    return testBox.intersectsBox(meshBox);
+                });    
+                if (!overlaps) {
+                    return new THREE.Vector3(x, y,boardBox.max.z - rectDepth/2); 
+                }
+            }
+        }
+        return null; 
     }
+    
 
     generate2DDrawing() {
         if (this.frame) {
@@ -228,7 +253,6 @@ class Bodies {
                 this.twoDObjects.push(lineSegments);
 
                 const { width, height, depth } = child.mesh.geometry.parameters;;
-
 
                 this.innerObjects.push({ lineSegments, width, height, depth });
                 lineSegments.scale.copy(child.mesh.scale);

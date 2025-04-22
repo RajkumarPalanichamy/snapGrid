@@ -6,7 +6,7 @@ import { Bodies } from './bodies.js';
 import { UserInterface } from './userInterface.js';
 import { Dimensions } from './dimensions.js';
 import { scaleModel } from './operations/scalingHelper.js';
-
+import { rectColor } from './constants/color.js';
 let completeViewer = null;
 
 function create() {
@@ -64,7 +64,12 @@ class Viewer {
         this.previousScale = new THREE.Vector3(1, 1, 1)
         this.scalingDampeningFactor = 1;
         this.selectedMeshes = [];
-
+        this.mouseDownValue = {
+            position: new THREE.Vector3(0,0,0),
+            scale: new THREE.Vector3(0,0,0),
+           
+        };
+this.intersected = false
     }
 
     createViewer() {
@@ -769,6 +774,8 @@ class Viewer {
     }
 
     handleMouseDown() {
+        const {x,y,z} = this.intersectedObject.position.clone()
+        const scale = this.intersectedObject.scale.clone()
         if (this.transformControls.mode === "scale") {
             const modelBox = new THREE.Box3().setFromObject(this.intersectedObject);
             const frameBox = new THREE.Box3().setFromObject(this.bodies.frame);
@@ -799,7 +806,8 @@ class Viewer {
         }
 
         this.transformControls.attach(this.intersectedObject);
-
+        this.mouseDownValue.position.set(x,y,z)
+        this.mouseDownValue.scale.set(scale.x,scale.y,scale.z)
     }
 
     handleMouseUp() {
@@ -808,6 +816,12 @@ class Viewer {
             this.bodies.transformEnabled = true
             this.transformControls.detach();
             this.dimensions.removeDimensions();
+        }
+       
+        if(this.intersected){
+            this.intersectedObject.position.set(this.mouseDownValue.position.x,this.mouseDownValue.position.y,this.mouseDownValue.position.z)
+            this.intersectedObject.scale.set(this.mouseDownValue.scale.x,this.mouseDownValue.scale.y,this.mouseDownValue.scale.z)
+            this.intersectedObject.material.color = new THREE.Color(rectColor.initialColor)
         }
     }
 
@@ -884,14 +898,31 @@ class Viewer {
 
     restrictDoorMovement(intersectedObject) {
         if (!this.overallDimensionValues) return;
+        this.intersected = false
         const modelBoundingBox = new THREE.Box3().setFromObject(intersectedObject);
         const boundaryBoundingBox = new THREE.Box3().setFromObject(this.bodies.frame);
 
         const restrictPosition = (position, halfDimension, rectangleHalf) => {
             return THREE.MathUtils.clamp(position, halfDimension, rectangleHalf);
         };
+        const testBox = new THREE.Box3().setFromObject(intersectedObject);
 
-        // console.log( "movement", boundaryBoundingBox.max.x <= modelBoundingBox.max.x )
+        const filteredArray = this.bodies.overallBodies.filter(mesh => mesh.mesh.uuid !== intersectedObject.uuid);
+        const overlaps = filteredArray.some(mesh => {
+
+            const meshBox = new THREE.Box3().setFromObject(mesh.mesh);
+            return testBox.intersectsBox(meshBox);
+        });
+
+        if (this.intersectedObject.material.color.r === 1) {
+
+            this.intersectedObject.material.color = new THREE.Color(rectColor.initialColor)
+        }
+        if (overlaps) {
+            this.intersected = true
+            intersectedObject.material.color = new THREE.Color(rectColor.collisionColor)
+        }
+
         if (
             boundaryBoundingBox.max.x < modelBoundingBox.max.x ||
             boundaryBoundingBox.min.x > modelBoundingBox.min.x ||
