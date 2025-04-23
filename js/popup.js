@@ -381,7 +381,9 @@ class Popup {
                 // this.miniViewer.loadArticleData(selectedData);
                 console.log(selectedData);            
             } else if (dataType === 'part') {
-                this.miniViewer.loadPartData(selectedData);
+                // this.meshes.forEach((mesh)=>{
+                    this.miniViewer.loadPartData(selectedData);
+                // })
             } else if (dataType === 'profile') {
                 // this.miniViewer.loadProfileData(selectedData);
                 console.log(selectedData);

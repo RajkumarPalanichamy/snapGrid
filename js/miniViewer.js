@@ -28,8 +28,69 @@ class MiniViewer {
         this.previousScale = new THREE.Vector3(1, 1, 1)
         this.scalingDampeningFactor = 1;
         this.init(parent);
-
+        this.parent = parent
+        // this.createModalDialog();
     }
+
+    // createModalDialog() {
+    //     // Create modal container
+    //     const modalContainer = document.createElement('div');
+    //     modalContainer.id = 'mesh-confirmation-modal';
+
+    //     // Create modal content
+    //     const modalContent = document.createElement('div');
+    //     modalContent.className = 'modal-content';
+
+    //     // Create title
+    //     const title = document.createElement('h3');
+    //     title.textContent = 'Create New Mesh';
+
+    //     // Create message
+    //     const message = document.createElement('p');
+    //     message.textContent = 'Do you want to create a new mesh with part data?';
+
+    //     // Create buttons container
+    //     const buttonsContainer = document.createElement('div');
+    //     buttonsContainer.className = 'buttons-container';
+
+    //     // Create Yes button
+    //     const yesButton = document.createElement('button');
+    //     yesButton.className = 'yes-button';
+    //     yesButton.textContent = 'Yes';
+
+    //     // Create No button
+    //     const noButton = document.createElement('button');
+    //     noButton.className = 'no-button';
+    //     noButton.textContent = 'No';
+
+    //     // Assemble the modal
+    //     buttonsContainer.appendChild(yesButton);
+    //     buttonsContainer.appendChild(noButton);
+    //     modalContent.appendChild(title);
+    //     modalContent.appendChild(message);
+    //     modalContent.appendChild(buttonsContainer);
+    //     modalContainer.appendChild(modalContent);
+    //     document.body.appendChild(modalContainer);
+
+    //     // Store references to the modal elements
+    //     this.modalContainer = modalContainer;
+    //     this.yesButton = yesButton;
+    //     this.noButton = noButton;
+    // }
+
+    // showModal() {
+    //     return new Promise((resolve) => {
+    //         this.modalContainer.style.display = 'flex';
+            
+    //         const handleResponse = (choice) => {
+    //             this.modalContainer.style.display = 'none';
+    //             resolve(choice);
+    //         };
+
+    //         this.yesButton.onclick = () => handleResponse(true);
+    //         this.noButton.onclick = () => handleResponse(false);
+    //     });
+    // }
 
     init(parent) {
         this.miniViewerContainer = document.getElementById("mini-container");
@@ -184,7 +245,7 @@ class MiniViewer {
             })
             : parent.forEach(mesh => {
                 const clonedRectangle = mesh.clone();
-                clonedRectangle.position.set(0, 0, 0); // Center in the mini viewer
+                // clonedRectangle.position.set(0, 0, 0); // Center in the mini viewer
                 this.scene.add(clonedRectangle);
                 this.miniViewerSceneObject.push(clonedRectangle);
             })
@@ -211,11 +272,11 @@ class MiniViewer {
                     // Apply repeat value based on mesh size
                     const repeatValue = 1 / Math.max(size.x, size.y); // Adjust as needed
                     texture.repeat.set(repeatValue, repeatValue);
-                    
                     if (targetMesh.material) {
                         const newMat = new THREE.MeshBasicMaterial({ map: texture });
                         targetMesh.material = newMat;
                         targetMesh.material.needsUpdate = true;
+                        
                     }
                     
                     resolve(texture);
@@ -230,8 +291,19 @@ class MiniViewer {
     }
 
     async loadPartData(partData) {
-        console.log(partData,"partData");
+        console.log(partData,"pppp");
         
+        // Fetch texture and thickness data first
+        const textureIdData = await API.fetchTexture(partData.composite[0].materialId);
+        let textureValue;
+        if (textureIdData.textureItemId) {
+            textureValue = await API.fetchTextureValue(textureIdData.textureItemId);
+        } else {
+            const textureValueArray = await API.loadRALData();
+            textureValue = textureValueArray.data.find(item => item.id === textureIdData.colorId)
+            console.log(textureValue, "textureValue");
+        }
+
         if (!partData || !partData.vertices || !Array.isArray(partData.vertices)) {
             console.error('Invalid part data structure');
             return;
@@ -249,18 +321,6 @@ class MiniViewer {
             return;
         }
 
-        // Fetch texture and thickness data first
-        const textureIdData = await API.fetchTexture(partData.composite[0].materialId);
-        let textureValue;
-        if(textureIdData.textureItemId){
-            textureValue = await API.fetchTextureValue(textureIdData.textureItemId);
-        }else{
-            const textureValueArray = await API.loadRALData();
-            textureValue = textureValueArray.data.find(item => item.id === textureIdData.colorId)
-            console.log(textureValue,"textureValue");
-            
-        }
-
         const shape = new THREE.Shape(points);
         const extrudeSettings = {
             steps: 1,
@@ -270,23 +330,8 @@ class MiniViewer {
 
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         const mesh = new THREE.Mesh(geometry);
-
-
-         if (partData.positionMatrix) {
-            const matrix = new THREE.Matrix4();
-            const pos = partData.positionMatrix;
-            matrix.set(
-                pos.vxx, pos.vxy, pos.vxz, pos.mx,
-                pos.vyx, pos.vyy, pos.vyz, pos.my,
-                pos.vzx, pos.vzy, pos.vzz, pos.mz,
-                0, 0, 0, 1
-            );
-            
-            mesh.applyMatrix4(matrix);
-        }
-
-
-        if(textureIdData.textureItemId){
+        
+        if (textureIdData.textureItemId) {
             try {
                 const textureDataUrl = await API.materialData(textureValue.id, textureValue.hash);
                 if (textureDataUrl) {
@@ -295,9 +340,54 @@ class MiniViewer {
             } catch (error) {
                 console.error('Error loading texture data:', error);
             }
-        }else{
-            mesh.material = new THREE.MeshBasicMaterial({ color: textureValue.rgb });
+        } else {
+            mesh.material = new THREE.MeshBasicMaterial({ color: textureValue.rgb});
         }
+
+        const parentBox = new THREE.Box3();
+        this.parent.forEach(meshM => {
+            console.log(meshM,"purplemezh");
+            meshM.updateMatrixWorld();
+            parentBox.expandByObject(meshM);
+        });
+        console.log(mesh,"partmezh");
+
+        const partBox = new THREE.Box3().setFromObject(mesh);
+
+        const parentHelper = new THREE.Box3Helper(parentBox, 0x00ff00); 
+        const partHelper = new THREE.Box3Helper(partBox, 0xff0000); 
+        
+        this.scene.add(parentHelper);
+        this.scene.add(partHelper);
+
+        const parentSize = new THREE.Vector3();
+        const partSize = new THREE.Vector3();
+        parentBox.getSize(parentSize);
+        partBox.getSize(partSize);
+
+        let parentScale
+
+        this.parent.forEach((obj)=>{
+             parentScale = obj.scale.clone();
+        })
+
+        const scaleX = (parentSize.x / partSize.x) * parentScale.x;
+        const scaleY = (parentSize.y / partSize.y) * parentScale.y;
+        const scaleZ = (parentSize.z / partSize.z) * parentScale.z;
+        
+        mesh.scale.set(scaleX, scaleY, scaleZ);
+
+        partBox.setFromObject(mesh);
+        partBox.getSize(partSize);
+
+        const parentCenter = new THREE.Vector3();
+        const partCenter = new THREE.Vector3();
+        parentBox.getCenter(parentCenter);
+        partBox.getCenter(partCenter);
+
+        mesh.position.copy(parentCenter);
+        mesh.position.sub(partCenter);
+
         this.scene.add(mesh);
         this.miniViewerSceneObject.push(mesh);
     }
