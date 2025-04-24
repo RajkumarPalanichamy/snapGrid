@@ -78,7 +78,6 @@ class Bodies {
     }
 
     create2DShape(widthBox, heightBox, depthBox) {
-        console.log('yash')
         const tri = new THREE.Shape();
         tri.moveTo(-widthBox / 2, heightBox / 2);
         tri.lineTo(widthBox / 2, heightBox / 2);
@@ -98,7 +97,6 @@ class Bodies {
     }
 
     createRectangle(widthBox, heightBox, depthBox, visible, lineSegments) {
-        console.log('yash2')
         const material = new THREE.MeshStandardMaterial({ color: '#7F4125' });
         material.transparent = true
         material.opacity = 0.6
@@ -136,7 +134,6 @@ class Bodies {
         } else {
             this.overallBodies.push({ mesh: rectangle, sprite: sprite });
         }
-        console.log(this.snapEnabled)
         if (this.snapEnabled) {
             if (!this.viewer.mode2D) {
                 this.snap.rebuildSnapMarkers3D();
@@ -378,11 +375,9 @@ class Bodies {
         if (this.snapEnabled) {
 
             if (this.viewer.mode2D) {
-                console.log(this.viewer.mode2D, '  this.viewer.mode2D')
                 this.snap.addSnapPointsTo2Drectangles()
 
             } else {
-                console.log(this.viewer.mode2D, '  this.viewer.mode2D')
                 this.snap.addSnapPointsTo3D();
             }
             // this.viewer.mode2D ? this.snap.addSnapPointsTo2Drectangles() : this.snap.addSnapPointsTo3D();

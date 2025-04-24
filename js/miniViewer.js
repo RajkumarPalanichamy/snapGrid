@@ -291,7 +291,6 @@ class MiniViewer {
     }
 
     async loadPartData(partData) {
-        console.log(partData,"pppp");
         
         // Fetch texture and thickness data first
         const textureIdData = await API.fetchTexture(partData.composite[0].materialId);
@@ -301,7 +300,6 @@ class MiniViewer {
         } else {
             const textureValueArray = await API.loadRALData();
             textureValue = textureValueArray.data.find(item => item.id === textureIdData.colorId)
-            console.log(textureValue, "textureValue");
         }
 
         if (!partData || !partData.vertices || !Array.isArray(partData.vertices)) {
@@ -345,20 +343,17 @@ class MiniViewer {
         }
 
         const parentBox = new THREE.Box3();
-        this.parent.forEach(meshM => {
-            console.log(meshM,"purplemezh");
-            meshM.updateMatrixWorld();
-            parentBox.expandByObject(meshM);
-        });
-        console.log(mesh,"partmezh");
+        this.parent.forEach(meshMini => {
+            meshMini.updateMatrixWorld();
+            parentBox.expandByObject(meshMini);
+        })
 
         const partBox = new THREE.Box3().setFromObject(mesh);
 
-        const parentHelper = new THREE.Box3Helper(parentBox, 0x00ff00); 
-        const partHelper = new THREE.Box3Helper(partBox, 0xff0000); 
-        
-        this.scene.add(parentHelper);
-        this.scene.add(partHelper);
+        // const parentHelper = new THREE.Box3Helper(parentBox, 0x00ff00); 
+        // const partHelper = new THREE.Box3Helper(partBox, 0xff0000); 
+        // this.scene.add(parentHelper);
+        // this.scene.add(partHelper);
 
         const parentSize = new THREE.Vector3();
         const partSize = new THREE.Vector3();
@@ -477,6 +472,9 @@ class MiniViewer {
                 break;
             case 'KeyS':
                 this.transformControls.setMode('scale');
+                break;
+            case 'Delete':
+                this.deleteSelectedMeshes();
                 break;
         }
     }
@@ -659,6 +657,20 @@ class MiniViewer {
         requestAnimationFrame(() => this.animate());
         this.orbitControls.update();
         this.renderer.render(this.scene, this.camera);
+    }
+
+    deleteSelectedMeshes() {
+        if (this.intersectedObject) {
+            this.scene.remove(this.intersectedObject);
+            const index = this.miniViewerSceneObject.indexOf(this.intersectedObject);
+            if (index !== -1) {
+                this.miniViewerSceneObject.splice(index, 1);
+            }
+
+            this.cleanupOutline();
+            this.resetTransformControls();
+            this.intersectedObject = null;
+        }
     }
 }
 
