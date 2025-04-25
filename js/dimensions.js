@@ -74,7 +74,6 @@ class Dimensions {
             // Attach to appropriate container
             const miniContainer = document.getElementById("mini-container");
             if (miniContainer) {
-                console.log('yash')
                 dimensionBox = document.createElement("div");
                 dimensionBox.id = "dimension-box";
                 dimensionBox.style.position = "absolute";
@@ -89,7 +88,6 @@ class Dimensions {
                 // dimensionBox.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
                 miniContainer.appendChild(dimensionBox);
             } else {
-                console.log('soni')
                 dimensionBox = document.createElement("div");
                 dimensionBox.id = "dimension-box";
                 dimensionBox.style.position = "absolute";
