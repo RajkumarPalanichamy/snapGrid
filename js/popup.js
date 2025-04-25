@@ -95,135 +95,52 @@ class Popup {
         dataBox.style.backgroundColor = "#fff"
         dataBox.innerHTML = '<div>Please Choose the Type!!</div>'
 
-        // Handle type change
         typeSelect.onchange = async () => {
-            const selectedType = typeSelect.value
-            dataBox.innerHTML = '' // Clear previous content
+            const selectedType = typeSelect.value;
+            dataBox.innerHTML = ''; // Clear previous content
 
-            switch (selectedType) {
-                case 'Choose the type!!':
-                    dataBox.innerHTML = '<div>Please Choose the Type!!</div>'
-                    break
-                case 'article':
-                    this.updateMaterial('color', 0x8c3118)
-                    this.articleData = await API.loadArticleData()
-                    if (this.articleData) {
-                        this.articleData.data.forEach(article => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = article.name ? article.name : article.id
-                            div.value = article.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-                            div.onclick = () => {
-                                this.handleItemClick(article.id, 'article');
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
-                case 'part':
-                    this.updateMaterial('color', 0x371a75)
-                    this.partData = await API.loadPartData()
-                    if (this.partData) {
-                        this.partData.data.forEach(part => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = part.name.en ? part.name.en : part.id
-                            div.value = part.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-
-                            div.onclick = () => {
-                                this.handleItemClick(part.id, 'part');
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
-                case 'profile':
-                    this.updateMaterial('color', 0x0e8499)
-                    this.profileData = await API.loadProfileData()
-            
-                    
-                    if (this.profileData) {
-                        this.profileData.data.forEach(profile => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = profile.name.en ? profile.name.en : profile.id
-                            div.value = profile.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-
-                            div.onclick = () => {
-                                this.handleItemClick(profile.id, 'profile');
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
-                case 'item master':
-                    this.updateMaterial('color', 0x4f9116)
-                    this.itemMasterData = await API.loadItemMasterData()
-                
-                    if (this.itemMasterData) {
-                        this.itemMasterData.data.forEach(itemMaster => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = itemMaster.name.en ? itemMaster.name.en : itemMaster.id
-                            div.value = itemMaster.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-
-                            div.onclick = () => {
-                                this.handleItemClick(itemMaster.id, 'item master');
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
+            if (selectedType === 'Choose the type!!') {
+                dataBox.innerHTML = '<div>Please Choose the Type!!</div>';
+                return;
             }
-        }
+
+            // Mapping types to colors and API methods
+            const typeConfig = {
+                'article': { color: 0x8c3118, loader: API.loadArticleData, namePath: 'name', dataKey: 'articleData' },
+                'part': { color: 0x371a75, loader: API.loadPartData, namePath: 'name.en', dataKey: 'partData' },
+                'profile': { color: 0x0e8499, loader: API.loadProfileData, namePath: 'name.en', dataKey: 'profileData' },
+                'item master': { color: 0x4f9116, loader: API.loadItemMasterData, namePath: 'name.en', dataKey: 'itemMasterData' }
+            };
+
+            const config = typeConfig[selectedType];
+            if (!config) return;
+
+            this.updateMaterial('color', config.color);
+
+            const responseData = await config.loader();
+            this[config.dataKey] = responseData;
+
+            if (responseData?.data) {
+                responseData.data.forEach(item => {
+                    const div = document.createElement("div");
+                    div.style.padding = "5px";
+                    div.style.borderBottom = "1px solid #eee";
+                    div.style.cursor = "pointer";
+                    div.style.transition = "background-color 0.3s";
+
+                    const name = config.namePath.split('.').reduce((obj, key) => obj?.[key], item);
+                    div.textContent = name || item.id;
+                    div.value = item.id;
+
+                    div.onmouseover = () => div.style.backgroundColor = "#f0f0f0";
+                    div.onmouseout = () => div.style.backgroundColor = "";
+                    div.onclick = () => this.handleItemClick(item.id, selectedType);
+
+                    dataBox.appendChild(div);
+                });
+            }
+        };
+
 
         this.typeSelect = typeSelect
         dataBoxContainer.appendChild(dataBox)
@@ -235,7 +152,6 @@ class Popup {
         // Title
         const titleProperties = document.createElement("h2");
         titleProperties.innerText = "Position Properties";
-        // if(this.meshes.length > 1) titleProperties.style.display = 'none'
         this.detailsContainer.appendChild(titleProperties);
 
         this.detailsContainer.appendChild(this.createPositionInput("X Position", "x"));
@@ -378,7 +294,7 @@ class Popup {
                 // this.miniViewer.loadArticleData(selectedData);
             } else if (dataType === 'part') {
                 // this.meshes.forEach((mesh)=>{
-                    this.miniViewer.loadPartData(selectedData);
+                this.miniViewer.createPartFromData(selectedData);
                 // })
             } else if (dataType === 'profile') {
                 // this.miniViewer.loadProfileData(selectedData);

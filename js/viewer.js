@@ -65,11 +65,10 @@ class Viewer {
         this.scalingDampeningFactor = 1;
         this.selectedMeshes = [];
         this.mouseDownValue = {
-            position: new THREE.Vector3(0,0,0),
-            scale: new THREE.Vector3(0,0,0),
-           
+            position: new THREE.Vector3(0, 0, 0),
+            scale: new THREE.Vector3(0, 0, 0),
         };
-this.intersected = false
+        this.intersected = false
     }
 
     createViewer() {
@@ -156,12 +155,10 @@ this.intersected = false
             const frameDiagonal = frameSize.length();
             spotLight.distance = frameDiagonal * 2;
 
-
             // Add to scene
             this.scene.add(spotLight);
         });
     }
-
 
     setupControls() {
         this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -774,7 +771,7 @@ this.intersected = false
     }
 
     handleMouseDown() {
-        const {x,y,z} = this.intersectedObject.position.clone()
+        const { x, y, z } = this.intersectedObject.position.clone()
         const scale = this.intersectedObject.scale.clone()
         if (this.transformControls.mode === "scale") {
             const modelBox = new THREE.Box3().setFromObject(this.intersectedObject);
@@ -806,8 +803,8 @@ this.intersected = false
         }
 
         this.transformControls.attach(this.intersectedObject);
-        this.mouseDownValue.position.set(x,y,z)
-        this.mouseDownValue.scale.set(scale.x,scale.y,scale.z)
+        this.mouseDownValue.position.set(x, y, z)
+        this.mouseDownValue.scale.set(scale.x, scale.y, scale.z)
     }
 
     handleMouseUp() {
@@ -817,10 +814,10 @@ this.intersected = false
             this.transformControls.detach();
             this.dimensions.removeDimensions();
         }
-       
-        if(this.intersected){
-            this.intersectedObject.position.set(this.mouseDownValue.position.x,this.mouseDownValue.position.y,this.mouseDownValue.position.z)
-            this.intersectedObject.scale.set(this.mouseDownValue.scale.x,this.mouseDownValue.scale.y,this.mouseDownValue.scale.z)
+
+        if (this.intersected) {
+            this.intersectedObject.position.set(this.mouseDownValue.position.x, this.mouseDownValue.position.y, this.mouseDownValue.position.z)
+            this.intersectedObject.scale.set(this.mouseDownValue.scale.x, this.mouseDownValue.scale.y, this.mouseDownValue.scale.z)
             this.intersectedObject.material.color = new THREE.Color(rectColor.initialColor)
         }
     }
@@ -830,8 +827,6 @@ this.intersected = false
         this.bodies.pivot.scale.set(1, 1, 1);
         this.bodies.pivot.rotation.set(0, 0, 0);
     }
-
-
 
     cleanupOutline() {
         if (this.selectedOutline) {
@@ -843,53 +838,6 @@ this.intersected = false
             this.selectedOutline = null;
         }
     }
-
-
-    // highlightSelectedObject(intersectedObject) {
-    //     if (this.selectedOutline) {
-    //         intersectedObject.children = []
-    //         this.scene.remove(this.selectedOutline);
-    //         this.selectedOutline.geometry.dispose();
-    //         this.selectedOutline.material.dispose();
-    //         this.selectedOutline = null;
-    //     }
-
-    //     if (!intersectedObject) return;
-
-    //     // Create a wireframe edges geometry
-    //     const edgesGeometry = new THREE.EdgesGeometry(intersectedObject.geometry);
-    //     /* const outlineMaterial = new THREE.LineBasicMaterial({
-    //         color: 0xffff00, // Yellow
-    //         linewidth: 3, // Line thickness (might not work in all browsers)
-    //     }); */
-    //     const outlineMaterial = new THREE.ShaderMaterial({
-    //         uniforms: {
-    //             glowColor: { value: new THREE.Color(0xffff00) }, // Bright yellow
-    //         },
-    //         vertexShader: `
-    //             varying vec3 vNormal;
-    //             void main() {
-    //                 vNormal = normal;
-    //                 gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    //             }
-    //         `,
-    //         fragmentShader: `
-    //             varying vec3 vNormal;
-    //             uniform vec3 glowColor;
-    //             void main() {
-    //                 float intensity = pow(1.2 - dot(vNormal, vec3(0, 0, 1)), 2.0);
-    //                 gl_FragColor = vec4(glowColor * intensity, 1.0);
-    //             }
-    //         `,
-    //         side: THREE.BackSide,
-    //         blending: THREE.AdditiveBlending,
-    //         transparent: true,
-    //     });
-
-    //     this.selectedOutline = new THREE.LineSegments(edgesGeometry, outlineMaterial);
-    //     intersectedObject.add(this.selectedOutline)
-    // }
-
 
     resetTransformControls() {
         this.transformControls.detach();

@@ -29,68 +29,7 @@ class MiniViewer {
         this.scalingDampeningFactor = 1;
         this.init(parent);
         this.parent = parent
-        // this.createModalDialog();
     }
-
-    // createModalDialog() {
-    //     // Create modal container
-    //     const modalContainer = document.createElement('div');
-    //     modalContainer.id = 'mesh-confirmation-modal';
-
-    //     // Create modal content
-    //     const modalContent = document.createElement('div');
-    //     modalContent.className = 'modal-content';
-
-    //     // Create title
-    //     const title = document.createElement('h3');
-    //     title.textContent = 'Create New Mesh';
-
-    //     // Create message
-    //     const message = document.createElement('p');
-    //     message.textContent = 'Do you want to create a new mesh with part data?';
-
-    //     // Create buttons container
-    //     const buttonsContainer = document.createElement('div');
-    //     buttonsContainer.className = 'buttons-container';
-
-    //     // Create Yes button
-    //     const yesButton = document.createElement('button');
-    //     yesButton.className = 'yes-button';
-    //     yesButton.textContent = 'Yes';
-
-    //     // Create No button
-    //     const noButton = document.createElement('button');
-    //     noButton.className = 'no-button';
-    //     noButton.textContent = 'No';
-
-    //     // Assemble the modal
-    //     buttonsContainer.appendChild(yesButton);
-    //     buttonsContainer.appendChild(noButton);
-    //     modalContent.appendChild(title);
-    //     modalContent.appendChild(message);
-    //     modalContent.appendChild(buttonsContainer);
-    //     modalContainer.appendChild(modalContent);
-    //     document.body.appendChild(modalContainer);
-
-    //     // Store references to the modal elements
-    //     this.modalContainer = modalContainer;
-    //     this.yesButton = yesButton;
-    //     this.noButton = noButton;
-    // }
-
-    // showModal() {
-    //     return new Promise((resolve) => {
-    //         this.modalContainer.style.display = 'flex';
-            
-    //         const handleResponse = (choice) => {
-    //             this.modalContainer.style.display = 'none';
-    //             resolve(choice);
-    //         };
-
-    //         this.yesButton.onclick = () => handleResponse(true);
-    //         this.noButton.onclick = () => handleResponse(false);
-    //     });
-    // }
 
     init(parent) {
         this.miniViewerContainer = document.getElementById("mini-container");
@@ -135,12 +74,9 @@ class MiniViewer {
         box.getSize(size);
         box.getCenter(center);
 
-
         this.camera = new THREE.PerspectiveCamera(75, this.widthO / this.heightO, 0.1, 10000);
-
         const maxDim = Math.max(size.x, size.y, size.z);
         const fov = this.camera.fov * (Math.PI / 180);
-
         const distance = (maxDim / 2) / Math.tan(fov / 2);
         const offset = 2;
 
@@ -152,16 +88,13 @@ class MiniViewer {
 
 
     setupLights(objects) {
-        // Remove previous lights if needed
         if (this.lights) {
             this.scene.remove(this.lights);
         }
 
-        // Ambient Light
         this.lights = new THREE.AmbientLight(0xffffff, 2);
         this.scene.add(this.lights);
 
-        // Compute bounding box for all objects
         const combinedBox = new THREE.Box3();
         objects.forEach(obj => {
             obj.updateMatrixWorld();
@@ -183,7 +116,6 @@ class MiniViewer {
             new THREE.Vector3(0, 0, -1)   // Back
         ];
 
-        // Side Lights
         sideDirs.forEach(dir => {
             const spotLight = new THREE.SpotLight(0xffffff, 2);
             const lightPos = frameCenter.clone().add(dir.clone().multiplyScalar(distance));
@@ -239,13 +171,13 @@ class MiniViewer {
         parent.length > 1
             ? parent.forEach(mesh => {
                 const clonedRectangle = mesh.clone();
-                // clonedRectangle.position.set(0, 0, 0); // Center in the mini viewer
                 this.scene.add(clonedRectangle);
                 this.miniViewerSceneObject.push(clonedRectangle);
             })
             : parent.forEach(mesh => {
                 const clonedRectangle = mesh.clone();
-                // clonedRectangle.position.set(0, 0, 0); // Center in the mini viewer
+                clonedRectangle.material.opacity = 0.2
+                clonedRectangle.material.depthTest = false
                 this.scene.add(clonedRectangle);
                 this.miniViewerSceneObject.push(clonedRectangle);
             })
@@ -255,7 +187,7 @@ class MiniViewer {
 
     applyTextureToMesh(textureDataUrl, targetMesh) {
         if (!textureDataUrl || !targetMesh) return;
-                // const textureDataURL1 = 'https://imagedelivery.net/6Q4HLLMjcXxpmSYfQ3vMaw/d419666c-f723-4320-29d7-04f2f687c200/2000px'
+        // const textureDataURL1 = 'https://imagedelivery.net/6Q4HLLMjcXxpmSYfQ3vMaw/d419666c-f723-4320-29d7-04f2f687c200/2000px'
         const textureLoader = new THREE.TextureLoader();
         return new Promise((resolve, reject) => {
             textureLoader.load(
@@ -276,9 +208,9 @@ class MiniViewer {
                         const newMat = new THREE.MeshBasicMaterial({ map: texture });
                         targetMesh.material = newMat;
                         targetMesh.material.needsUpdate = true;
-                        
+
                     }
-                    
+
                     resolve(texture);
                 },
                 undefined,
@@ -290,9 +222,7 @@ class MiniViewer {
         });
     }
 
-    async loadPartData(partData) {
-        
-        // Fetch texture and thickness data first
+    async createPartFromData(partData) {
         const textureIdData = await API.fetchTexture(partData.composite[0].materialId);
         let textureValue;
         if (textureIdData.textureItemId) {
@@ -328,7 +258,7 @@ class MiniViewer {
 
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
         const mesh = new THREE.Mesh(geometry);
-        
+
         if (textureIdData.textureItemId) {
             try {
                 const textureDataUrl = await API.materialData(textureValue.id, textureValue.hash);
@@ -339,46 +269,41 @@ class MiniViewer {
                 console.error('Error loading texture data:', error);
             }
         } else {
-            mesh.material = new THREE.MeshBasicMaterial({ color: textureValue.rgb});
+            mesh.material = new THREE.MeshBasicMaterial({ color: textureValue.rgb });
         }
 
-        const parentBox = new THREE.Box3();
+        const rectangleBondingBox = new THREE.Box3();
         this.parent.forEach(meshMini => {
             meshMini.updateMatrixWorld();
-            parentBox.expandByObject(meshMini);
+            rectangleBondingBox.expandByObject(meshMini);
         })
 
-        const partBox = new THREE.Box3().setFromObject(mesh);
+        const partBoundingBox = new THREE.Box3().setFromObject(mesh)
 
-        // const parentHelper = new THREE.Box3Helper(parentBox, 0x00ff00); 
-        // const partHelper = new THREE.Box3Helper(partBox, 0xff0000); 
-        // this.scene.add(parentHelper);
-        // this.scene.add(partHelper);
-
-        const parentSize = new THREE.Vector3();
+        const rectangleSize = new THREE.Vector3();
         const partSize = new THREE.Vector3();
-        parentBox.getSize(parentSize);
-        partBox.getSize(partSize);
+        rectangleBondingBox.getSize(rectangleSize);
+        partBoundingBox.getSize(partSize);
 
-        let parentScale
+        let rectangleScale
 
-        this.parent.forEach((obj)=>{
-             parentScale = obj.scale.clone();
+        this.parent.forEach((obj) => {
+            rectangleScale = obj.scale.clone();
         })
 
-        const scaleX = (parentSize.x / partSize.x) * parentScale.x;
-        const scaleY = (parentSize.y / partSize.y) * parentScale.y;
-        const scaleZ = (parentSize.z / partSize.z) * parentScale.z;
-        
+        const scaleX = (rectangleSize.x / partSize.x) * rectangleScale.x;
+        const scaleY = (rectangleSize.y / partSize.y) * rectangleScale.y;
+        const scaleZ = (rectangleSize.z / partSize.z) * rectangleScale.z;
+
         mesh.scale.set(scaleX, scaleY, scaleZ);
 
-        partBox.setFromObject(mesh);
-        partBox.getSize(partSize);
+        partBoundingBox.setFromObject(mesh);
+        partBoundingBox.getSize(partSize);
 
         const parentCenter = new THREE.Vector3();
         const partCenter = new THREE.Vector3();
-        parentBox.getCenter(parentCenter);
-        partBox.getCenter(partCenter);
+        rectangleBondingBox.getCenter(parentCenter);
+        partBoundingBox.getCenter(partCenter);
 
         mesh.position.copy(parentCenter);
         mesh.position.sub(partCenter);
@@ -433,11 +358,9 @@ class MiniViewer {
 
     setupControls() {
         this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement);
-        // this.orbitControls.enableDamping = true;
         this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
         this.transformControls.setSpace('world');
         this.transformControls.size = 0.5;
-        // this.transformControls.showZ = false;
         this.transformControls.setTranslationSnap(null);
         this.transformControls.setMode('translate');
         this.scene.add(this.transformControls);
@@ -588,7 +511,6 @@ class MiniViewer {
             });
         }
     }
-
 
     resetPivot() {
         this.pivot.position.set(0, 0, 0);
