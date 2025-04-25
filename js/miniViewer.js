@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { Dimensions } from './dimensions.js';
+import { API } from './api.js';
+
 import { scaleModel } from './operations/scalingHelper.js';
 class MiniViewer {
     constructor(parent, viewer, container) {
@@ -26,7 +28,7 @@ class MiniViewer {
         this.previousScale = new THREE.Vector3(1, 1, 1)
         this.scalingDampeningFactor = 1;
         this.init(parent);
-
+        this.parent = parent
     }
 
     init(parent) {
@@ -72,12 +74,9 @@ class MiniViewer {
         box.getSize(size);
         box.getCenter(center);
 
-
         this.camera = new THREE.PerspectiveCamera(75, this.widthO / this.heightO, 0.1, 10000);
-
         const maxDim = Math.max(size.x, size.y, size.z);
         const fov = this.camera.fov * (Math.PI / 180);
-
         const distance = (maxDim / 2) / Math.tan(fov / 2);
         const offset = 2;
 
@@ -89,16 +88,13 @@ class MiniViewer {
 
 
     setupLights(objects) {
-        // Remove previous lights if needed
         if (this.lights) {
             this.scene.remove(this.lights);
         }
 
-        // Ambient Light
         this.lights = new THREE.AmbientLight(0xffffff, 2);
         this.scene.add(this.lights);
 
-        // Compute bounding box for all objects
         const combinedBox = new THREE.Box3();
         objects.forEach(obj => {
             obj.updateMatrixWorld();
@@ -120,7 +116,6 @@ class MiniViewer {
             new THREE.Vector3(0, 0, -1)   // Back
         ];
 
-        // Side Lights
         sideDirs.forEach(dir => {
             const spotLight = new THREE.SpotLight(0xffffff, 2);
             const lightPos = frameCenter.clone().add(dir.clone().multiplyScalar(distance));
@@ -176,13 +171,13 @@ class MiniViewer {
         parent.length > 1
             ? parent.forEach(mesh => {
                 const clonedRectangle = mesh.clone();
-                // clonedRectangle.position.set(0, 0, 0); // Center in the mini viewer
                 this.scene.add(clonedRectangle);
                 this.miniViewerSceneObject.push(clonedRectangle);
             })
             : parent.forEach(mesh => {
                 const clonedRectangle = mesh.clone();
-                clonedRectangle.position.set(0, 0, 0); // Center in the mini viewer
+                clonedRectangle.material.opacity = 0.2
+                clonedRectangle.material.depthTest = false
                 this.scene.add(clonedRectangle);
                 this.miniViewerSceneObject.push(clonedRectangle);
             })
@@ -190,7 +185,52 @@ class MiniViewer {
         this.scene.add(this.pivot);
     }
 
-    loadPartData(partData) {
+    applyTextureToMesh(textureDataUrl, targetMesh) {
+        if (!textureDataUrl || !targetMesh) return;
+        // const textureDataURL1 = 'https://imagedelivery.net/6Q4HLLMjcXxpmSYfQ3vMaw/d419666c-f723-4320-29d7-04f2f687c200/2000px'
+        const textureLoader = new THREE.TextureLoader();
+        return new Promise((resolve, reject) => {
+            textureLoader.load(
+                textureDataUrl,
+                (texture) => {
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.wrapT = THREE.RepeatWrapping;
+
+                    // Calculate the size of the mesh
+                    const boundingBox = new THREE.Box3().setFromObject(targetMesh);
+                    const size = new THREE.Vector3();
+                    boundingBox.getSize(size);
+
+                    // Apply repeat value based on mesh size
+                    const repeatValue = 1 / Math.max(size.x, size.y); // Adjust as needed
+                    texture.repeat.set(repeatValue, repeatValue);
+                    if (targetMesh.material) {
+                        const newMat = new THREE.MeshBasicMaterial({ map: texture });
+                        targetMesh.material = newMat;
+                        targetMesh.material.needsUpdate = true;
+
+                    }
+
+                    resolve(texture);
+                },
+                undefined,
+                (error) => {
+                    console.error('Error loading texture:', error);
+                    reject(error);
+                }
+            );
+        });
+    }
+
+    async createPartFromData(partData) {
+        const textureIdData = await API.fetchTexture(partData.composite[0].materialId);
+        let textureValue;
+        if (textureIdData.textureItemId) {
+            textureValue = await API.fetchTextureValue(textureIdData.textureItemId);
+        } else {
+            const textureValueArray = await API.loadRALData();
+            textureValue = textureValueArray.data.find(item => item.id === textureIdData.colorId)
+        }
 
         if (!partData || !partData.vertices || !Array.isArray(partData.vertices)) {
             console.error('Invalid part data structure');
@@ -212,29 +252,64 @@ class MiniViewer {
         const shape = new THREE.Shape(points);
         const extrudeSettings = {
             steps: 1,
-            depth: 100,
+            depth: textureIdData.thickness,
             bevelEnabled: false
         };
 
         const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        const material = new THREE.MeshStandardMaterial({
-            color: 0x371a75,
-            side: THREE.DoubleSide,
-            flatShading: true
-        });
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new THREE.Mesh(geometry);
 
-        // mesh.rotation.x = Math.PI / 2;
+        if (textureIdData.textureItemId) {
+            try {
+                const textureDataUrl = await API.materialData(textureValue.id, textureValue.hash);
+                if (textureDataUrl) {
+                    await this.applyTextureToMesh(textureDataUrl, mesh);
+                }
+            } catch (error) {
+                console.error('Error loading texture data:', error);
+            }
+        } else {
+            mesh.material = new THREE.MeshBasicMaterial({ color: textureValue.rgb });
+        }
 
-        // this.miniViewerSceneObject.forEach(obj => {
-        //     this.scene.remove(obj);
-        // });
-        // this.miniViewerSceneObject = [];
+        const rectangleBondingBox = new THREE.Box3();
+        this.parent.forEach(meshMini => {
+            meshMini.updateMatrixWorld();
+            rectangleBondingBox.expandByObject(meshMini);
+        })
+
+        const partBoundingBox = new THREE.Box3().setFromObject(mesh)
+
+        const rectangleSize = new THREE.Vector3();
+        const partSize = new THREE.Vector3();
+        rectangleBondingBox.getSize(rectangleSize);
+        partBoundingBox.getSize(partSize);
+
+        let rectangleScale
+
+        this.parent.forEach((obj) => {
+            rectangleScale = obj.scale.clone();
+        })
+
+        const scaleX = (rectangleSize.x / partSize.x) * rectangleScale.x;
+        const scaleY = (rectangleSize.y / partSize.y) * rectangleScale.y;
+        const scaleZ = (rectangleSize.z / partSize.z) * rectangleScale.z;
+
+        mesh.scale.set(scaleX, scaleY, scaleZ);
+
+        partBoundingBox.setFromObject(mesh);
+        partBoundingBox.getSize(partSize);
+
+        const parentCenter = new THREE.Vector3();
+        const partCenter = new THREE.Vector3();
+        rectangleBondingBox.getCenter(parentCenter);
+        partBoundingBox.getCenter(partCenter);
+
+        mesh.position.copy(parentCenter);
+        mesh.position.sub(partCenter);
 
         this.scene.add(mesh);
         this.miniViewerSceneObject.push(mesh);
-
-        // this.updateCameraToFit(mesh);
     }
 
     updateCameraToFit(mesh) {
@@ -283,11 +358,9 @@ class MiniViewer {
 
     setupControls() {
         this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement);
-        // this.orbitControls.enableDamping = true;
         this.transformControls = new TransformControls(this.camera, this.renderer.domElement);
         this.transformControls.setSpace('world');
         this.transformControls.size = 0.5;
-        // this.transformControls.showZ = false;
         this.transformControls.setTranslationSnap(null);
         this.transformControls.setMode('translate');
         this.scene.add(this.transformControls);
@@ -322,6 +395,9 @@ class MiniViewer {
                 break;
             case 'KeyS':
                 this.transformControls.setMode('scale');
+                break;
+            case 'Delete':
+                this.deleteSelectedMeshes();
                 break;
         }
     }
@@ -436,7 +512,6 @@ class MiniViewer {
         }
     }
 
-
     resetPivot() {
         this.pivot.position.set(0, 0, 0);
         this.pivot.scale.set(1, 1, 1);
@@ -504,6 +579,20 @@ class MiniViewer {
         requestAnimationFrame(() => this.animate());
         this.orbitControls.update();
         this.renderer.render(this.scene, this.camera);
+    }
+
+    deleteSelectedMeshes() {
+        if (this.intersectedObject) {
+            this.scene.remove(this.intersectedObject);
+            const index = this.miniViewerSceneObject.indexOf(this.intersectedObject);
+            if (index !== -1) {
+                this.miniViewerSceneObject.splice(index, 1);
+            }
+
+            this.cleanupOutline();
+            this.resetTransformControls();
+            this.intersectedObject = null;
+        }
     }
 }
 

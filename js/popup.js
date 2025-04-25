@@ -1,4 +1,5 @@
 import { MiniViewer } from './miniViewer.js';
+import { API } from './api.js';
 
 class Popup {
     constructor(selectedRectangle, mesh, viewer, onSave, onCancel) {
@@ -94,132 +95,52 @@ class Popup {
         dataBox.style.backgroundColor = "#fff"
         dataBox.innerHTML = '<div>Please Choose the Type!!</div>'
 
-        // Handle type change
         typeSelect.onchange = async () => {
-            const selectedType = typeSelect.value
-            dataBox.innerHTML = '' // Clear previous content
+            const selectedType = typeSelect.value;
+            dataBox.innerHTML = ''; // Clear previous content
 
-            switch (selectedType) {
-                case 'Choose the type!!':
-                    dataBox.innerHTML = '<div>Please Choose the Type!!</div>'
-                    break
-                case 'article':
-                    this.updateMaterial('color', 0x8c3118)
-                    await this.loadArticleData()
-                    if (this.articleData) {
-                        this.articleData.data.forEach(article => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = article.name ? article.name : article.id
-                            div.value = article.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-                            div.onclick = () => {
-                                this.handleItemClick(article.id)
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
-                case 'part':
-                    this.updateMaterial('color', 0x371a75)
-                    await this.loadPartData()
-                    if (this.partData) {
-                        this.partData.data.forEach(part => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = part.name.en ? part.name.en : part.id
-                            div.value = part.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-
-                            div.onclick = () => {
-                                this.handleItemClick(part.id)
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
-                case 'profile':
-                    this.updateMaterial('color', 0x0e8499)
-                    await this.loadProfileData()
-                    if (this.profileData) {
-                        this.profileData.data.forEach(profile => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = profile.name.en ? profile.name.en : profile.id
-                            div.value = profile.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-
-                            div.onclick = () => {
-                                this.handleItemClick(profile.id)
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
-                case 'item master':
-                    this.updateMaterial('color', 0x4f9116)
-                    await this.loadItemMasterData()
-                    if (this.itemMasterData) {
-                        this.itemMasterData.data.forEach(itemMaster => {
-                            const div = document.createElement("div")
-                            div.style.padding = "5px"
-                            div.style.borderBottom = "1px solid #eee"
-                            div.textContent = itemMaster.name.en ? itemMaster.name.en : itemMaster.id
-                            div.value = itemMaster.id
-
-                            div.style.cursor = "pointer"
-                            div.style.transition = "background-color 0.3s"
-
-                            div.onmouseover = () => {
-                                div.style.backgroundColor = "#f0f0f0"
-                            }
-                            div.onmouseout = () => {
-                                div.style.backgroundColor = ""
-                            }
-
-                            div.onclick = () => {
-                                this.handleItemClick(itemMaster.id)
-                            }
-
-                            dataBox.appendChild(div)
-                        })
-                    }
-                    break
+            if (selectedType === 'Choose the type!!') {
+                dataBox.innerHTML = '<div>Please Choose the Type!!</div>';
+                return;
             }
-        }
+
+            // Mapping types to colors and API methods
+            const typeConfig = {
+                'article': { color: 0x8c3118, loader: API.loadArticleData, namePath: 'name', dataKey: 'articleData' },
+                'part': { color: 0x371a75, loader: API.loadPartData, namePath: 'name.en', dataKey: 'partData' },
+                'profile': { color: 0x0e8499, loader: API.loadProfileData, namePath: 'name.en', dataKey: 'profileData' },
+                'item master': { color: 0x4f9116, loader: API.loadItemMasterData, namePath: 'name.en', dataKey: 'itemMasterData' }
+            };
+
+            const config = typeConfig[selectedType];
+            if (!config) return;
+
+            this.updateMaterial('color', config.color);
+
+            const responseData = await config.loader();
+            this[config.dataKey] = responseData;
+
+            if (responseData?.data) {
+                responseData.data.forEach(item => {
+                    const div = document.createElement("div");
+                    div.style.padding = "5px";
+                    div.style.borderBottom = "1px solid #eee";
+                    div.style.cursor = "pointer";
+                    div.style.transition = "background-color 0.3s";
+
+                    const name = config.namePath.split('.').reduce((obj, key) => obj?.[key], item);
+                    div.textContent = name || item.id;
+                    div.value = item.id;
+
+                    div.onmouseover = () => div.style.backgroundColor = "#f0f0f0";
+                    div.onmouseout = () => div.style.backgroundColor = "";
+                    div.onclick = () => this.handleItemClick(item.id, selectedType);
+
+                    dataBox.appendChild(div);
+                });
+            }
+        };
+
 
         this.typeSelect = typeSelect
         dataBoxContainer.appendChild(dataBox)
@@ -231,7 +152,6 @@ class Popup {
         // Title
         const titleProperties = document.createElement("h2");
         titleProperties.innerText = "Position Properties";
-        // if(this.meshes.length > 1) titleProperties.style.display = 'none'
         this.detailsContainer.appendChild(titleProperties);
 
         this.detailsContainer.appendChild(this.createPositionInput("X Position", "x"));
@@ -324,54 +244,6 @@ class Popup {
         })
     }
 
-    async loadArticleData() {
-        try {
-            const response = await fetch('http://localhost:3030/api/articles')
-            if (!response.ok) {
-                throw new Error('Failed to fetch article data')
-            }
-            this.articleData = await response.json()
-        } catch (error) {
-            console.error('Error loading article data:', error)
-        }
-    }
-
-    async loadPartData() {
-        try {
-            const response = await fetch('http://localhost:3030/api/parts')
-            if (!response.ok) {
-                throw new Error('Failed to fetch part data')
-            }
-            this.partData = await response.json()
-        } catch (error) {
-            console.error('Error loading part data:', error)
-        }
-    }
-
-    async loadProfileData() {
-        try {
-            const response = await fetch('http://localhost:3030/api/profiles')
-            if (!response.ok) {
-                throw new Error('Failed to fetch profile data')
-            }
-            this.profileData = await response.json()
-        } catch (error) {
-            console.error('Error loading profile data:', error)
-        }
-    }
-
-    async loadItemMasterData() {
-        try {
-            const response = await fetch('http://localhost:3030/api/items')
-            if (!response.ok) {
-                throw new Error('Failed to fetch itemMaster data')
-            }
-            this.itemMasterData = await response.json()
-        } catch (error) {
-            console.error('Error loading itemMaster data:', error)
-        }
-    }
-
     saveChanges() {
         if (!this.selectedRectangle || !this.meshes) return;
         this.meshes.forEach(mesh => {
@@ -405,13 +277,33 @@ class Popup {
         if (this.onCancel) this.onCancel();
     }
 
-    async handleItemClick(itemId) {
-        const response = await fetch(`http://localhost:3030/api/parts/${itemId}`)
-        if (!response.ok) {
-            throw new Error('Failed to fetch part data')
+    createDimensionBox() {
+        // Check if the dimension box already exists
+        let dimensionBox = document.getElementById("dimension-box");
+        if (!dimensionBox) {
+            dimensionBox = document.createElement("div");
+            dimensionBox.id = "dimension-box";
+            document.body.appendChild(dimensionBox);
         }
-        const partData = await response.json()
-        this.miniViewer.loadPartData(partData)
+    }
+
+    async handleItemClick(itemId, type) {
+        try {
+            const [selectedData, dataType] = await API.handleItemClick(itemId, type);
+            if (dataType === 'article') {
+                // this.miniViewer.loadArticleData(selectedData);
+            } else if (dataType === 'part') {
+                // this.meshes.forEach((mesh)=>{
+                this.miniViewer.createPartFromData(selectedData);
+                // })
+            } else if (dataType === 'profile') {
+                // this.miniViewer.loadProfileData(selectedData);
+            } else if (dataType === 'item master') {
+                // this.miniViewer.loadItemMasterData(selectedData);
+            }
+        } catch (error) {
+            console.error('Error loading part data:', error);
+        }
     }
 }
 
